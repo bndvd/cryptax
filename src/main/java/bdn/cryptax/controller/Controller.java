@@ -6,7 +6,11 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 import org.apache.commons.csv.CSVFormat;
@@ -62,7 +66,7 @@ public class Controller {
 		}
 		System.out.println("INFO: Computed "+cgeList.size()+" capital gain entries");
 		
-		List<IncomeEntry> ieList = computeIncome(tList);
+		List<IncomeEntry> ieList = computeIncomeAndExpenses(tList);
 		if (ieList == null) {
 			throw new ControllerException("Income computation failed (returned null)");
 		}
@@ -244,7 +248,7 @@ public class Controller {
 	}
 	
 	
-	private static List<IncomeEntry> computeIncome(List<Transaction> tList) throws ControllerException {
+	private static List<IncomeEntry> computeIncomeAndExpenses(List<Transaction> tList) throws ControllerException {
 		if (tList == null) {
 			return null;
 		}
@@ -255,58 +259,136 @@ public class Controller {
 		TransactionComparator tc = new TransactionComparator();
 		tList.sort(tc);
 		
-		String year = null;
+		int year = 0;
 		BigDecimal ordIncomeUsdSum = BigDecimal.ZERO;
 		BigDecimal mngIncomeUsdSum = BigDecimal.ZERO;
+		HashMap<Integer, BigDecimal> mngExpenseUsdMap = new HashMap<>();
 		
 		for (Transaction t : tList) {
 			Transaction.TransactionType tType = t.getTxnType();
-			if (tType == TransactionType.INCOME || tType == TransactionType.MNG_INCOME) {
-				String tYear = t.getTxnYear();
-				if (year == null) {
+			if (tType == TransactionType.INCOME || tType == TransactionType.MNG_INCOME || tType == TransactionType.MNG_PURCHASE) {
+				int tYear = t.getTxnYearInt();
+				if (year == 0) {
 					// first income transaction
 					year = tYear;
 				}
 				
-				BigDecimal incomeUsd = t.getTxnUsdAmnt();
-				if (incomeUsd == null) {
-					incomeUsd = t.getTxnCoinAmnt().multiply(t.getTxnUsdPerUnit());
+				BigDecimal tUsdAmnt = t.getTxnUsdAmnt();
+				if (tUsdAmnt == null) {
+					tUsdAmnt = t.getTxnCoinAmnt().multiply(t.getTxnUsdPerUnit());
 				}
 				
 				// same year
-				if (year.equals(tYear)) {
+				if (year == tYear) {
 					if (tType == TransactionType.INCOME) {
-						ordIncomeUsdSum = ordIncomeUsdSum.add(incomeUsd);
+						ordIncomeUsdSum = ordIncomeUsdSum.add(tUsdAmnt);
 					}
 					else if (tType == TransactionType.MNG_INCOME) {
-						mngIncomeUsdSum = mngIncomeUsdSum.add(incomeUsd);
+						mngIncomeUsdSum = mngIncomeUsdSum.add(tUsdAmnt);
+					}
+					else if (tType == TransactionType.MNG_PURCHASE) {
+						amortizeExpenses(mngExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 					}
 				}
 				// new year
 				else {
-					IncomeEntry ie = new IncomeEntry(year, ordIncomeUsdSum, mngIncomeUsdSum, null);
+					BigDecimal expense = mngExpenseUsdMap.get(year);
+					if (expense == null) {
+						expense = BigDecimal.ZERO;
+					}
+					IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
 					result.add(ie);
+
+					if (year > tYear) {
+						// should not happen since we sorted transactions by dttm, but a defensive step to avoid an infinite loop
+						throw new ControllerException("Encountered an out of order (earlier) Transaction dttm " + t.getTxnDttm());
+					}
 					
-					year = tYear;
+					year++;
 					ordIncomeUsdSum = BigDecimal.ZERO;
 					mngIncomeUsdSum = BigDecimal.ZERO;
+					
+					while (year < tYear) {
+						expense = mngExpenseUsdMap.get(year);
+						if (expense == null) {
+							expense = BigDecimal.ZERO;
+						}
+						ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
+						result.add(ie);
+						year++;
+					}
+					
 					if (tType == TransactionType.INCOME) {
-						ordIncomeUsdSum = incomeUsd;
+						ordIncomeUsdSum = tUsdAmnt;
 					}
 					else if (tType == TransactionType.MNG_INCOME) {
-						mngIncomeUsdSum = incomeUsd;
+						mngIncomeUsdSum = tUsdAmnt;
+					}
+					else if (tType == TransactionType.MNG_PURCHASE) {
+						amortizeExpenses(mngExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 					}
 				}
 			}
 		}
-		if (ordIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 ||
-				mngIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0) {
-			IncomeEntry ie = new IncomeEntry(year, ordIncomeUsdSum, mngIncomeUsdSum, null);
+		while (ordIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 ||
+				mngIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 || mngExpenseUsdMap.get(year) != null) {
+			
+			BigDecimal expense = mngExpenseUsdMap.get(year);
+			if (expense == null) {
+				expense = BigDecimal.ZERO;
+			}
+			IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
 			result.add(ie);
+			
+			year++;
+			ordIncomeUsdSum = BigDecimal.ZERO;
+			mngIncomeUsdSum = BigDecimal.ZERO;
 		}
 		
 		return result;
 	}
+	
+	
+	private static void amortizeExpenses(HashMap<Integer, BigDecimal> yearToExpenseMap, LocalDate startDate, Long lengthMos,
+			BigDecimal totalExpense) {
+		
+		if (yearToExpenseMap == null || startDate == null || lengthMos == null || totalExpense == null) {
+			System.err.println("ERROR: Could not amortize expenses because passed parameter(s) were null");
+			return;
+		}
+		
+		LocalDate endDate = startDate.plusMonths(lengthMos.longValue());
+		long totalAmortPeriod = ChronoUnit.DAYS.between(startDate, endDate);
+		BigDecimal totalAmortPeriodBD = new BigDecimal(totalAmortPeriod);
+		
+		LocalDate t1 = startDate;
+		long remAmortPeriod = totalAmortPeriod;
+		LocalDate t2 = t1.plusDays(1).with(TemporalAdjusters.lastDayOfYear());
+		if (endDate.isBefore(t2)) {
+			t2 = endDate;
+		}
+		
+		while (remAmortPeriod > 0 && t1.isBefore(t2)) {
+			int year = t2.getYear();
+			long amortSegment = ChronoUnit.DAYS.between(t1, t2);
+			BigDecimal expenseInYear = totalExpense.multiply(new BigDecimal(amortSegment))
+					.divide(totalAmortPeriodBD, NUM_DECIMAL_PLACES_PRECISION, RoundingMode.HALF_UP);
+			
+			BigDecimal mapValue = yearToExpenseMap.get(year);
+			if (mapValue != null) {
+				expenseInYear = expenseInYear.add(mapValue);
+			}
+			yearToExpenseMap.put(year, expenseInYear);
+			
+			remAmortPeriod = remAmortPeriod - amortSegment;
+			t1 = t2;
+			t2 = t2.plusYears(1);
+			if (endDate.isBefore(t2)) {
+				t2 = endDate;
+			}
+		}
+	}
+	
 	
 	private static void writeCapitalGainEntries(List<CapitalGainEntry> cgeList, File outputFile) throws ControllerException {
 		if (cgeList == null || outputFile == null) {

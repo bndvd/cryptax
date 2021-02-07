@@ -46,7 +46,7 @@ public class Transaction {
 	private BigDecimal txnUsdPerUnit = null;
 	private BigDecimal txnFeeCoin = null;
 	private BigDecimal txnBrkrFeeUsd = null;
-	private BigDecimal termMos = null;
+	private Long termMos = null;
 	
 	
 	public Transaction(CSVRecord csvRecord) throws TransactionException {
@@ -155,7 +155,7 @@ public class Transaction {
 		try {
 			String csvTermMos = csvRecord.get(COL_TERM_MOS);
 			if (csvTermMos != null && !csvTermMos.trim().equals("")) {
-				termMos = new BigDecimal(csvTermMos);
+				termMos = Long.parseLong(csvTermMos);
 			}
 		}
 		catch (Exception exc) {
@@ -204,8 +204,13 @@ public class Transaction {
 	}
 	
 	
-	public String getTxnYear() {
+	public String getTxnYearStr() {
 		return txnDttm.format(DTF_YEAR);
+	}
+	
+	
+	public int getTxnYearInt() {
+		return Integer.parseInt(getTxnYearStr());
 	}
 
 
@@ -268,12 +273,12 @@ public class Transaction {
 	}
 
 
-	public BigDecimal getTermMos() {
+	public Long getTermMos() {
 		return termMos;
 	}
 
 
-	public void setTermMos(BigDecimal termMos) {
+	public void setTermMos(Long termMos) {
 		this.termMos = termMos;
 	}
 
@@ -287,7 +292,7 @@ public class Transaction {
 			.append(getTxnUsdAmnt()).append(",")
 			.append(getTxnUsdPerUnit()).append(",")
 			.append(getTxnFeeCoin()).append(",")
-			.append(getTxnBrkrFeeUsd())
+			.append(getTxnBrkrFeeUsd()).append(",")
 			.append(getTermMos());
 		
 		return buf.toString();
