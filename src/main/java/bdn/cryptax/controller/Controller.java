@@ -262,7 +262,8 @@ public class Controller {
 		int year = 0;
 		BigDecimal ordIncomeUsdSum = BigDecimal.ZERO;
 		BigDecimal mngIncomeUsdSum = BigDecimal.ZERO;
-		HashMap<Integer, BigDecimal> mngExpenseUsdMap = new HashMap<>();
+		BigDecimal mngExpenseUsdSum = BigDecimal.ZERO;
+		HashMap<Integer, BigDecimal> mngAmortExpenseUsdMap = new HashMap<>();
 		
 		for (Transaction t : tList) {
 			Transaction.TransactionType tType = t.getTxnType();
@@ -287,16 +288,17 @@ public class Controller {
 						mngIncomeUsdSum = mngIncomeUsdSum.add(tUsdAmnt);
 					}
 					else if (tType == TransactionType.MNG_PURCHASE) {
-						amortizeExpenses(mngExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
+						mngExpenseUsdSum = mngExpenseUsdSum.add(tUsdAmnt);
+						amortizeExpenses(mngAmortExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 					}
 				}
 				// new year
 				else {
-					BigDecimal expense = mngExpenseUsdMap.get(year);
-					if (expense == null) {
-						expense = BigDecimal.ZERO;
+					BigDecimal amortExpense = mngAmortExpenseUsdMap.get(year);
+					if (amortExpense == null) {
+						amortExpense = BigDecimal.ZERO;
 					}
-					IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
+					IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
 					result.add(ie);
 
 					if (year > tYear) {
@@ -307,13 +309,14 @@ public class Controller {
 					year++;
 					ordIncomeUsdSum = BigDecimal.ZERO;
 					mngIncomeUsdSum = BigDecimal.ZERO;
+					mngExpenseUsdSum = BigDecimal.ZERO;
 					
 					while (year < tYear) {
-						expense = mngExpenseUsdMap.get(year);
-						if (expense == null) {
-							expense = BigDecimal.ZERO;
+						amortExpense = mngAmortExpenseUsdMap.get(year);
+						if (amortExpense == null) {
+							amortExpense = BigDecimal.ZERO;
 						}
-						ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
+						ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
 						result.add(ie);
 						year++;
 					}
@@ -325,24 +328,26 @@ public class Controller {
 						mngIncomeUsdSum = tUsdAmnt;
 					}
 					else if (tType == TransactionType.MNG_PURCHASE) {
-						amortizeExpenses(mngExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
+						mngExpenseUsdSum = tUsdAmnt;
+						amortizeExpenses(mngAmortExpenseUsdMap, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 					}
 				}
 			}
 		}
 		while (ordIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 ||
-				mngIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 || mngExpenseUsdMap.get(year) != null) {
+				mngIncomeUsdSum.compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0 || mngAmortExpenseUsdMap.get(year) != null) {
 			
-			BigDecimal expense = mngExpenseUsdMap.get(year);
-			if (expense == null) {
-				expense = BigDecimal.ZERO;
+			BigDecimal amortExpense = mngAmortExpenseUsdMap.get(year);
+			if (amortExpense == null) {
+				amortExpense = BigDecimal.ZERO;
 			}
-			IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, expense);
+			IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
 			result.add(ie);
 			
 			year++;
 			ordIncomeUsdSum = BigDecimal.ZERO;
 			mngIncomeUsdSum = BigDecimal.ZERO;
+			mngExpenseUsdSum = BigDecimal.ZERO;
 		}
 		
 		return result;
@@ -430,10 +435,11 @@ public class Controller {
 			CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSV_FORMAT);
 			
 			printer.printRecord(IncomeEntry.COL_TAX_YEAR, IncomeEntry.COL_ORD_INC_USD, IncomeEntry.COL_MNG_INC_USD,
-					IncomeEntry.COL_MNG_EXP_USD);
+					IncomeEntry.COL_MNG_EXP_USD, IncomeEntry.COL_MNG_AMORT_EXP_USD);
 			
 			for (IncomeEntry ie : ieList) {
-				printer.printRecord(ie.getTaxYear(), ie.getOrdIncomeStr(), ie.getMngIncomeStr(), ie.getMngExpenseStr());
+				printer.printRecord(ie.getTaxYear(), ie.getOrdIncomeStr(), ie.getMngIncomeStr(), ie.getMngExpenseStr(),
+						ie.getMngAmortExpenseStr());
 			}
 			
 			printer.close(true);

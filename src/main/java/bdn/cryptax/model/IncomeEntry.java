@@ -5,23 +5,26 @@ import java.math.BigDecimal;
 public class IncomeEntry {
 
 	public static final String COL_TAX_YEAR = "Tax Year";
-	public static final String COL_ORD_INC_USD = "Ord Income";
+	public static final String COL_ORD_INC_USD = "Ordinary Income";
 	public static final String COL_MNG_INC_USD = "Mining Income";
 	public static final String COL_MNG_EXP_USD = "Mining Expense";
+	public static final String COL_MNG_AMORT_EXP_USD = "Mining Amortized Expense";
 
 
 	private String taxYear;
 	private BigDecimal ordIncome;
 	private BigDecimal mngIncome;
 	private BigDecimal mngExpense;
+	private BigDecimal mngAmortExpense;
 
 	
 
-	public IncomeEntry(String taxYear, BigDecimal ordIncome, BigDecimal mngIncome, BigDecimal mngExpense) {
+	public IncomeEntry(String taxYear, BigDecimal ordIncome, BigDecimal mngIncome, BigDecimal mngExpense, BigDecimal mngAmortExpense) {
 		this.taxYear = taxYear;
 		this.ordIncome = ordIncome;
 		this.mngIncome = mngIncome;
 		this.mngExpense = mngExpense;
+		this.mngAmortExpense = mngAmortExpense;
 	}
 
 
@@ -88,9 +91,27 @@ public class IncomeEntry {
 
 
 
+	public BigDecimal getMngAmortExpense() {
+		return mngAmortExpense;
+	}
+
+
+
+	public String getMngAmortExpenseStr() {
+		return (mngAmortExpense != null) ? mngAmortExpense.toPlainString() : "";
+	}
+	
+
+
+	public void setMngAmortExpense(BigDecimal mngAmortExpense) {
+		this.mngAmortExpense = mngAmortExpense;
+	}
+
+
+
 	@Override
 	public String toString() {
-		return new String(taxYear + " " + ordIncome + " " + mngIncome + " " + mngExpense);
+		return new String(taxYear + " " + ordIncome + " " + mngIncome + " " + mngExpense + " " + mngAmortExpense);
 	}
 	
 }
