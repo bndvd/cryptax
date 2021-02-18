@@ -22,8 +22,9 @@ public class Main {
 				String now = LocalDateTime.now().format(dtf);
 				String outFileNameCapitalGains = fileBaseName + "_cg" + now + ".csv";
 				String outFileNameIncome = fileBaseName + "_inc" + now + ".csv";
+				String outFileNameMining = fileBaseName + "_min" + now + ".csv";
 				
-				Controller.processCostBasis(inFileName, outFileNameCapitalGains, outFileNameIncome);
+				Controller.process(inFileName, outFileNameCapitalGains, outFileNameIncome, outFileNameMining);
 			}
 			catch (ControllerException exc) {
 				System.err.println("ERROR: " + exc.getMessage());

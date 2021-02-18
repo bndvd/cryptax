@@ -19,9 +19,10 @@ public class Transaction {
 	public static final String COL_TXN_FEE_COIN = "Txn Fee COIN";
 	public static final String COL_TXN_BRKR_FEE_USD = "Brkr Fee USD";
 	public static final String COL_TERM_MOS = "Term Months";
+	public static final String COL_TXN_HASHRATE = "Hash Rate (GH/s)";
 
 	public static enum TransactionType {
-		ACQUIRE, DISPOSE, TRANSFER, INCOME, MNG_INCOME, MNG_PURCHASE
+		ACQUIRE, DISPOSE, TRANSFER, INCOME, MNG_INCOME, MNG_PURCHASE, MNG_REINVEST
 	}
 	
 	public static HashMap<String, TransactionType> typeStrToEnum = new HashMap<>();
@@ -32,6 +33,7 @@ public class Transaction {
 		typeStrToEnum.put("inc", TransactionType.INCOME);
 		typeStrToEnum.put("minc", TransactionType.MNG_INCOME);
 		typeStrToEnum.put("mpur", TransactionType.MNG_PURCHASE);
+		typeStrToEnum.put("mre", TransactionType.MNG_REINVEST);
 	}
 	
 
@@ -47,6 +49,7 @@ public class Transaction {
 	private BigDecimal txnFeeCoin = null;
 	private BigDecimal txnBrkrFeeUsd = null;
 	private Long termMos = null;
+	private Long txnHashrate = null;
 	
 	
 	public Transaction(CSVRecord csvRecord) throws TransactionException {
@@ -163,6 +166,18 @@ public class Transaction {
 					csvRecord.getRecordNumber() +": "+exc.getMessage());
 		}
 		
+		// Optional field
+		try {
+			String csvTxnHashrate = csvRecord.get(COL_TXN_HASHRATE);
+			if (csvTxnHashrate != null && !csvTxnHashrate.trim().equals("")) {
+				txnHashrate = Long.parseLong(csvTxnHashrate);
+			}
+		}
+		catch (Exception exc) {
+			throw new TransactionException(TransactionExceptionType.INVALID_DATA, "Unparsable COL_TXN_HASHRATE in CSV Record #"+
+					csvRecord.getRecordNumber() +": "+exc.getMessage());
+		}
+		
 		// Validate for required combinations of fields
 		if (txnType == TransactionType.ACQUIRE || txnType == TransactionType.INCOME || txnType == TransactionType.DISPOSE ||
 				txnType == TransactionType.MNG_INCOME) {
@@ -177,10 +192,10 @@ public class Transaction {
 						" has empty COL_TXN_COIN_AMNT or non-empty COL_TXN_FEE_COIN but empty COL_TXN_USD_AMNT and COL_TXN_USD_PER_UNIT");
 			}
 		}
-		else if (txnType == TransactionType.MNG_PURCHASE) {
-			if (termMos == null) {
+		else if (txnType == TransactionType.MNG_PURCHASE || txnType == TransactionType.MNG_REINVEST) {
+			if (termMos == null || txnHashrate == null) {
 				throw new TransactionException(TransactionExceptionType.INVALID_DATA, "CSV Record #"+csvRecord.getRecordNumber()+
-						" contained empty COL_TERM_MOS");
+						" contained empty COL_TERM_MOS or COL_TXN_HASHRATE");
 			}
 			if (txnCoinAmnt == null && txnUsdAmnt == null) {
 				throw new TransactionException(TransactionExceptionType.INVALID_DATA, "CSV Record #"+csvRecord.getRecordNumber()+
@@ -242,6 +257,19 @@ public class Transaction {
 	public void setTxnUsdAmnt(BigDecimal txnUsdAmnt) {
 		this.txnUsdAmnt = txnUsdAmnt;
 	}
+	
+	
+	public BigDecimal getCalculatedTxnUsdAmnt() throws TransactionException {
+		BigDecimal result = txnUsdAmnt;
+		if (result == null) {
+			if (txnCoinAmnt == null || txnUsdPerUnit == null) {
+				throw new TransactionException(TransactionExceptionType.INVALID_DATA, "Transaction dated "+
+						getTxnDttm() +" could not calculate TXN_USD_AMNT because of insufficient data");
+			}
+			result = txnCoinAmnt.multiply(txnUsdPerUnit);
+		}
+		return result;
+	}
 
 
 	public BigDecimal getTxnUsdPerUnit() {
@@ -280,6 +308,16 @@ public class Transaction {
 
 	public void setTermMos(Long termMos) {
 		this.termMos = termMos;
+	}
+
+
+	public Long getTxnHashrate() {
+		return txnHashrate;
+	}
+
+
+	public void setTxnHashrate(Long txnHashrate) {
+		this.txnHashrate = txnHashrate;
 	}
 
 
