@@ -20,6 +20,7 @@ import org.apache.commons.csv.CSVPrinter;
 import org.apache.commons.csv.CSVRecord;
 
 import bdn.cryptax.model.CapitalGainEntry;
+import bdn.cryptax.model.CapitalGainEntry.CapitalGainTerm;
 import bdn.cryptax.model.IncomeEntry;
 import bdn.cryptax.model.MiningContract;
 import bdn.cryptax.model.MiningContract.MiningContractType;
@@ -70,7 +71,7 @@ public class Controller {
 		}
 		System.out.println("INFO: Computed "+cgeList.size()+" capital gain entries");
 		
-		List<IncomeEntry> ieList = computeIncomeAndExpenses(tList);
+		List<IncomeEntry> ieList = computeIncomeAndExpenses(tList, cgeList);
 		if (ieList == null) {
 			throw new ControllerException("Income computation failed (returned null)");
 		}
@@ -263,12 +264,47 @@ public class Controller {
 	}
 	
 	
-	private static List<IncomeEntry> computeIncomeAndExpenses(List<Transaction> tList) throws ControllerException {
-		if (tList == null) {
+	private static List<IncomeEntry> computeIncomeAndExpenses(List<Transaction> tList, List<CapitalGainEntry> cgeList)
+			throws ControllerException {
+		
+		if (tList == null || cgeList == null) {
 			return null;
 		}
 
 		List<IncomeEntry> result = new ArrayList<>();
+		
+		
+		// First take care of computing capital gain totals for each year
+		HashMap<Integer, BigDecimal> yearToShortTermCapGain = new HashMap<>();
+		HashMap<Integer, BigDecimal> yearToLongTermCapGain = new HashMap<>();
+		int earliestCapGainYear = 0;
+		for (CapitalGainEntry cge : cgeList) {
+			int year = cge.getTaxYearInt();
+			if (earliestCapGainYear == 0 || year < earliestCapGainYear) {
+				earliestCapGainYear = year;
+			}
+			
+			HashMap<Integer, BigDecimal> capGainMap = null;
+			CapitalGainTerm term = cge.getTerm();
+			if (term == CapitalGainTerm.SHORTTERM) {
+				capGainMap = yearToShortTermCapGain;
+			}
+			else if (term == CapitalGainTerm.LONGTERM) {
+				capGainMap = yearToLongTermCapGain;
+			}
+			if (capGainMap != null) {
+				BigDecimal currCapGainInMap = capGainMap.get(year);
+				if (currCapGainInMap == null) {
+					currCapGainInMap = BigDecimal.ZERO;
+				}
+				BigDecimal gain = cge.getGain();
+				if (gain != null) {
+					currCapGainInMap = currCapGainInMap.add(gain);
+					capGainMap.put(year, currCapGainInMap);
+				}
+			}
+		}
+		
 		
 		// Sort all transactions in chronological order
 		TransactionComparator tc = new TransactionComparator();
@@ -289,6 +325,16 @@ public class Controller {
 					if (year == 0) {
 						// first income transaction
 						year = tYear;
+						
+						// if there were earlier years with capital gains, enter them first (this is not expected to happen!)
+						while (earliestCapGainYear < year) {
+							BigDecimal shortTermCapGain = yearToShortTermCapGain.get(earliestCapGainYear);
+							BigDecimal longTermCapGain = yearToLongTermCapGain.get(earliestCapGainYear);
+							IncomeEntry ie = new IncomeEntry(String.valueOf(earliestCapGainYear), null, shortTermCapGain,
+									longTermCapGain, null, null, null);
+							result.add(ie);
+							earliestCapGainYear++;
+						}
 					}
 					
 					BigDecimal tUsdAmnt = t.getCalculatedTxnUsdAmnt();
@@ -312,7 +358,11 @@ public class Controller {
 						if (amortExpense == null) {
 							amortExpense = BigDecimal.ZERO;
 						}
-						IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
+						BigDecimal shortTermCapGain = yearToShortTermCapGain.get(year);
+						BigDecimal longTermCapGain = yearToLongTermCapGain.get(year);
+						
+						IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, shortTermCapGain,
+								longTermCapGain, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
 						result.add(ie);
 	
 						if (year > tYear) {
@@ -330,7 +380,11 @@ public class Controller {
 							if (amortExpense == null) {
 								amortExpense = BigDecimal.ZERO;
 							}
-							ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
+							shortTermCapGain = yearToShortTermCapGain.get(year);
+							longTermCapGain = yearToLongTermCapGain.get(year);
+							
+							ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, shortTermCapGain, longTermCapGain, mngIncomeUsdSum,
+									mngExpenseUsdSum, amortExpense);
 							result.add(ie);
 							year++;
 						}
@@ -359,7 +413,11 @@ public class Controller {
 			if (amortExpense == null) {
 				amortExpense = BigDecimal.ZERO;
 			}
-			IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, mngIncomeUsdSum, mngExpenseUsdSum, amortExpense);
+			BigDecimal shortTermCapGain = yearToShortTermCapGain.get(year);
+			BigDecimal longTermCapGain = yearToLongTermCapGain.get(year);
+			
+			IncomeEntry ie = new IncomeEntry(String.valueOf(year), ordIncomeUsdSum, shortTermCapGain, longTermCapGain, mngIncomeUsdSum, 
+					mngExpenseUsdSum, amortExpense);
 			result.add(ie);
 			
 			year++;
@@ -673,6 +731,8 @@ public class Controller {
 			printer.printRecord(
 					IncomeEntry.COL_TAX_YEAR,
 					IncomeEntry.COL_ORD_INC_USD,
+					IncomeEntry.COL_CAPGAIN_SHORTTERM,
+					IncomeEntry.COL_CAPGAIN_LONGTERM,
 					IncomeEntry.COL_MNG_INC_USD,
 					IncomeEntry.COL_MNG_EXP_USD,
 					IncomeEntry.COL_MNG_AMORT_EXP_USD);
@@ -681,6 +741,8 @@ public class Controller {
 				printer.printRecord(
 						ie.getTaxYear(),
 						ie.getOrdIncomeStr(),
+						ie.getShortTermCapGainsStr(),
+						ie.getLongTermCapGainsStr(),
 						ie.getMngIncomeStr(),
 						ie.getMngExpenseStr(),
 						ie.getMngAmortExpenseStr());

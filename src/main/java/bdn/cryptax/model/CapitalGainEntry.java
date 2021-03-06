@@ -114,6 +114,15 @@ public class CapitalGainEntry {
 	public String getTaxYearStr() {
 		return (dateDisposed != null) ? dateDisposed.format(DTF_YEAR) : "";
 	}
+	
+	
+	public int getTaxYearInt() {
+		int result = 0;
+		if (dateDisposed != null) {
+			result = dateDisposed.getYear();
+		}
+		return result;
+	}
 
 
 	public void setDateDisposed(LocalDate dateDisposed) {

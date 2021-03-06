@@ -6,6 +6,8 @@ public class IncomeEntry {
 
 	public static final String COL_TAX_YEAR = "Tax Year";
 	public static final String COL_ORD_INC_USD = "Ordinary Income";
+	public static final String COL_CAPGAIN_SHORTTERM = "Short-Term Cap Gain";
+	public static final String COL_CAPGAIN_LONGTERM = "Long-Term Cap Gain";
 	public static final String COL_MNG_INC_USD = "Mining Income";
 	public static final String COL_MNG_EXP_USD = "Mining Expense";
 	public static final String COL_MNG_AMORT_EXP_USD = "Mining Amortized Expense";
@@ -13,15 +15,20 @@ public class IncomeEntry {
 
 	private String taxYear;
 	private BigDecimal ordIncome;
+	private BigDecimal shortTermCapGains;
+	private BigDecimal longTermCapGains;
 	private BigDecimal mngIncome;
 	private BigDecimal mngExpense;
 	private BigDecimal mngAmortExpense;
 
 	
 
-	public IncomeEntry(String taxYear, BigDecimal ordIncome, BigDecimal mngIncome, BigDecimal mngExpense, BigDecimal mngAmortExpense) {
+	public IncomeEntry(String taxYear, BigDecimal ordIncome, BigDecimal shortTermCapGains, BigDecimal longTermCapGains,
+			BigDecimal mngIncome, BigDecimal mngExpense, BigDecimal mngAmortExpense) {
 		this.taxYear = taxYear;
 		this.ordIncome = ordIncome;
+		this.shortTermCapGains = shortTermCapGains;
+		this.longTermCapGains = longTermCapGains;
 		this.mngIncome = mngIncome;
 		this.mngExpense = mngExpense;
 		this.mngAmortExpense = mngAmortExpense;
@@ -54,6 +61,42 @@ public class IncomeEntry {
 
 	public void setOrdIncome(BigDecimal ordIncome) {
 		this.ordIncome = ordIncome;
+	}
+
+
+
+	public BigDecimal getShortTermCapGains() {
+		return shortTermCapGains;
+	}
+
+
+	
+	public String getShortTermCapGainsStr() {
+		return (shortTermCapGains != null) ? shortTermCapGains.toPlainString() : "";
+	}
+
+
+
+	public void setShortTermCapGains(BigDecimal shortTermCapGains) {
+		this.shortTermCapGains = shortTermCapGains;
+	}
+
+
+
+	public BigDecimal getLongTermCapGains() {
+		return longTermCapGains;
+	}
+
+
+
+	public String getLongTermCapGainsStr() {
+		return (longTermCapGains != null) ? longTermCapGains.toPlainString() : "";
+	}
+
+
+
+	public void setLongTermCapGains(BigDecimal longTermCapGains) {
+		this.longTermCapGains = longTermCapGains;
 	}
 
 
