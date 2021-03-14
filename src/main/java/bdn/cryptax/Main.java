@@ -1,10 +1,5 @@
 package bdn.cryptax;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-
-import org.apache.commons.io.FilenameUtils;
-
 import bdn.cryptax.controller.Controller;
 import bdn.cryptax.controller.ControllerException;
 
@@ -17,14 +12,7 @@ public class Main {
 			String inFileName = args[0];
 			
 			try {
-				String fileBaseName = FilenameUtils.getBaseName(inFileName);
-				DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-				String now = LocalDateTime.now().format(dtf);
-				String outFileNameCapitalGains = fileBaseName + "_cg" + now + ".csv";
-				String outFileNameIncome = fileBaseName + "_inc" + now + ".csv";
-				String outFileNameMining = fileBaseName + "_min" + now + ".csv";
-				
-				Controller.process(inFileName, outFileNameCapitalGains, outFileNameIncome, outFileNameMining);
+				Controller.process(inFileName);
 			}
 			catch (ControllerException exc) {
 				System.err.println("ERROR: " + exc.getMessage());

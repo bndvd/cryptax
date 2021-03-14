@@ -1,6 +1,7 @@
 package bdn.cryptax.model;
 
 import java.math.BigDecimal;
+import java.util.Map;
 
 public class IncomeEntry {
 
@@ -14,18 +15,21 @@ public class IncomeEntry {
 
 
 	private String taxYear;
-	private BigDecimal ordIncome;
-	private BigDecimal shortTermCapGains;
-	private BigDecimal longTermCapGains;
-	private BigDecimal mngIncome;
-	private BigDecimal mngExpense;
-	private BigDecimal mngAmortExpense;
+	private String[] accts;
+	private Map<String, BigDecimal> ordIncome;
+	private Map<String, BigDecimal> shortTermCapGains;
+	private Map<String, BigDecimal> longTermCapGains;
+	private Map<String, BigDecimal> mngIncome;
+	private Map<String, BigDecimal> mngExpense;
+	private Map<String, BigDecimal> mngAmortExpense;
 
 	
 
-	public IncomeEntry(String taxYear, BigDecimal ordIncome, BigDecimal shortTermCapGains, BigDecimal longTermCapGains,
-			BigDecimal mngIncome, BigDecimal mngExpense, BigDecimal mngAmortExpense) {
+	public IncomeEntry(String taxYear, String[] accts, Map<String, BigDecimal> ordIncome,
+			Map<String, BigDecimal> shortTermCapGains, Map<String, BigDecimal> longTermCapGains,
+			Map<String, BigDecimal> mngIncome, Map<String, BigDecimal> mngExpense, Map<String, BigDecimal> mngAmortExpense) {
 		this.taxYear = taxYear;
+		this.accts = accts;
 		this.ordIncome = ordIncome;
 		this.shortTermCapGains = shortTermCapGains;
 		this.longTermCapGains = longTermCapGains;
@@ -48,107 +52,102 @@ public class IncomeEntry {
 
 
 
-	public BigDecimal getOrdIncome() {
-		return ordIncome;
+	public String[] getAccts() {
+		return accts;
+	}
+
+
+
+	public BigDecimal getOrdIncome(String acct) {
+		if (acct == null || ordIncome == null) {
+			return null;
+		}
+		return ordIncome.get(acct);
 	}
 	
 	
-	public String getOrdIncomeStr() {
-		return (ordIncome != null) ? ordIncome.toPlainString() : "";
+	public String getOrdIncomeStr(String acct) {
+		BigDecimal result = getOrdIncome(acct);
+		return (result != null) ? result.toPlainString() : "";
 	}
 
 
 
-	public void setOrdIncome(BigDecimal ordIncome) {
-		this.ordIncome = ordIncome;
-	}
-
-
-
-	public BigDecimal getShortTermCapGains() {
-		return shortTermCapGains;
+	public BigDecimal getShortTermCapGains(String acct) {
+		if (acct == null || shortTermCapGains == null) {
+			return null;
+		}
+		return shortTermCapGains.get(acct);
 	}
 
 
 	
-	public String getShortTermCapGainsStr() {
-		return (shortTermCapGains != null) ? shortTermCapGains.toPlainString() : "";
+	public String getShortTermCapGainsStr(String acct) {
+		BigDecimal result = getShortTermCapGains(acct);
+		return (result != null) ? result.toPlainString() : "";
 	}
 
 
 
-	public void setShortTermCapGains(BigDecimal shortTermCapGains) {
-		this.shortTermCapGains = shortTermCapGains;
+	public BigDecimal getLongTermCapGains(String acct) {
+		if (acct == null || longTermCapGains == null) {
+			return null;
+		}
+		return longTermCapGains.get(acct);
 	}
 
 
 
-	public BigDecimal getLongTermCapGains() {
-		return longTermCapGains;
+	public String getLongTermCapGainsStr(String acct) {
+		BigDecimal result = getLongTermCapGains(acct);
+		return (result != null) ? result.toPlainString() : "";
 	}
 
 
 
-	public String getLongTermCapGainsStr() {
-		return (longTermCapGains != null) ? longTermCapGains.toPlainString() : "";
+	public BigDecimal getMngIncome(String acct) {
+		if (acct == null || mngIncome == null) {
+			return null;
+		}
+		return mngIncome.get(acct);
 	}
 
 
-
-	public void setLongTermCapGains(BigDecimal longTermCapGains) {
-		this.longTermCapGains = longTermCapGains;
+	public String getMngIncomeStr(String acct) {
+		BigDecimal result = getMngIncome(acct);
+		return (result != null) ? result.toPlainString() : "";
 	}
 
 
-
-	public BigDecimal getMngIncome() {
-		return mngIncome;
-	}
-
-
-	public String getMngIncomeStr() {
-		return (mngIncome != null) ? mngIncome.toPlainString() : "";
-	}
-
-
-	public void setMngIncome(BigDecimal mngIncome) {
-		this.mngIncome = mngIncome;
-	}
-
-
-
-	public BigDecimal getMngExpense() {
-		return mngExpense;
+	public BigDecimal getMngExpense(String acct) {
+		if (acct == null || mngExpense == null) {
+			return null;
+		}
+		return mngExpense.get(acct);
 	}
 	
 
-	public String getMngExpenseStr() {
-		return (mngExpense != null) ? mngExpense.toPlainString() : "";
-	}
-	
-
-
-	public void setMngExpense(BigDecimal mngExpense) {
-		this.mngExpense = mngExpense;
-	}
-
-
-
-	public BigDecimal getMngAmortExpense() {
-		return mngAmortExpense;
-	}
-
-
-
-	public String getMngAmortExpenseStr() {
-		return (mngAmortExpense != null) ? mngAmortExpense.toPlainString() : "";
+	public String getMngExpenseStr(String acct) {
+		BigDecimal result = getMngExpense(acct);
+		return (result != null) ? result.toPlainString() : "";
 	}
 	
 
 
-	public void setMngAmortExpense(BigDecimal mngAmortExpense) {
-		this.mngAmortExpense = mngAmortExpense;
+	public BigDecimal getMngAmortExpense(String acct) {
+		if (acct == null || mngAmortExpense == null) {
+			return null;
+		}
+		return mngAmortExpense.get(acct);
 	}
+
+
+
+	public String getMngAmortExpenseStr(String acct) {
+		BigDecimal result = getMngAmortExpense(acct);
+		return (result != null) ? result.toPlainString() : "";
+	}
+	
 
 
 

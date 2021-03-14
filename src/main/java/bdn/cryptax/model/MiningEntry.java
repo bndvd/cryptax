@@ -79,11 +79,6 @@ public class MiningEntry {
 	}
 
 
-	public void setDate(LocalDate date) {
-		this.date = date;
-	}
-
-
 	public BigDecimal getPurchase() {
 		return purchase;
 	}
@@ -92,11 +87,6 @@ public class MiningEntry {
 		return (purchase != null) ? purchase.toPlainString() : "";
 	}
 	
-	public void setPurchase(BigDecimal purchase) {
-		this.purchase = purchase;
-	}
-
-
 	public BigDecimal getReinvestment() {
 		return reinvestment;
 	}
@@ -107,11 +97,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setReinvestment(BigDecimal reinvestment) {
-		this.reinvestment = reinvestment;
-	}
-
-
 	public BigDecimal getDayBasisPurchase() {
 		return dayBasisPurchase;
 	}
@@ -122,11 +107,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setDayBasisPurchase(BigDecimal dayBasisPurchase) {
-		this.dayBasisPurchase = dayBasisPurchase;
-	}
-
-
 	public BigDecimal getCumBasisPurchase() {
 		return cumBasisPurchase;
 	}
@@ -137,11 +117,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setCumBasisPurchase(BigDecimal cumBasisPurchase) {
-		this.cumBasisPurchase = cumBasisPurchase;
-	}
-
-
 	public BigDecimal getDayBasisPurchaseAndReinvest() {
 		return dayBasisPurchaseAndReinvest;
 	}
@@ -152,11 +127,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setDayBasisPurchaseAndReinvest(BigDecimal basisPurchaseAndReinvest) {
-		this.dayBasisPurchaseAndReinvest = basisPurchaseAndReinvest;
-	}
-
-
 	public BigDecimal getDayIncome() {
 		return dayIncome;
 	}
@@ -167,11 +137,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setDayIncome(BigDecimal dayIncome) {
-		this.dayIncome = dayIncome;
-	}
-
-
 	public BigDecimal getCumIncome() {
 		return cumIncome;
 	}
@@ -182,11 +147,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setCumIncome(BigDecimal cumIncome) {
-		this.cumIncome = cumIncome;
-	}
-
-
 	public BigDecimal getGainPurchase() {
 		if (dayIncome == null || dayBasisPurchase == null) {
 			return null;
@@ -225,11 +185,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setHashrate(Long hashrate) {
-		this.hashrate = hashrate;
-	}
-
-
 	public BigDecimal getUsdPerCoin() {
 		return usdPerCoin;
 	}
@@ -240,11 +195,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setUsdPerCoin(BigDecimal usdPerCoin) {
-		this.usdPerCoin = usdPerCoin;
-	}
-
-
 	public BigDecimal getYield() {
 		return yield;
 	}
@@ -255,11 +205,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setYield(BigDecimal yield) {
-		this.yield = yield;
-	}
-
-
 	public BigDecimal getDayRatePurchaseAndReinvest() {
 		return dayRatePurchaseAndReinvest;
 	}
@@ -270,11 +215,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setDayRatePurchaseAndReinvest(BigDecimal dayRatePurchaseAndReinvest) {
-		this.dayRatePurchaseAndReinvest = dayRatePurchaseAndReinvest;
-	}
-
-
 	public BigDecimal getAvgDayRatePurchaseAndReinvest() {
 		return avgDayRatePurchaseAndReinvest;
 	}
@@ -285,11 +225,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setAvgDayRatePurchaseAndReinvest(BigDecimal avgDayRatePurchaseAndReinvest) {
-		this.avgDayRatePurchaseAndReinvest = avgDayRatePurchaseAndReinvest;
-	}
-
-
 	public BigDecimal getDayRatePurchase() {
 		return dayRatePurchase;
 	}
@@ -300,11 +235,6 @@ public class MiningEntry {
 	}
 	
 	
-	public void setDayRatePurchase(BigDecimal dayRatePurchase) {
-		this.dayRatePurchase = dayRatePurchase;
-	}
-
-
 	
 
 }

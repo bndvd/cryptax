@@ -34,18 +34,8 @@ public class MiningContract {
 	}
 
 
-	public void setType(MiningContractType type) {
-		this.type = type;
-	}
-
-
 	public LocalDate getAcquisitionDate() {
 		return acquisitionDate;
-	}
-
-
-	public void setAcquisitionDate(LocalDate acquisitionDate) {
-		this.acquisitionDate = acquisitionDate;
 	}
 
 
@@ -54,18 +44,8 @@ public class MiningContract {
 	}
 
 
-	public void setStartDate(LocalDate startDate) {
-		this.startDate = startDate;
-	}
-
-
 	public LocalDate getEndDate() {
 		return endDate;
-	}
-
-
-	public void setEndDate(LocalDate endDate) {
-		this.endDate = endDate;
 	}
 
 
@@ -74,20 +54,11 @@ public class MiningContract {
 	}
 
 
-	public void setTotalAmountUsd(BigDecimal totalAmountUsd) {
-		this.totalAmountUsd = totalAmountUsd;
-	}
-
-
 	public BigDecimal getPerDayAmountUsd() {
 		return perDayAmountUsd;
 	}
 
 
-	public void setPerDayAmountUsd(BigDecimal perDayAmountUsd) {
-		this.perDayAmountUsd = perDayAmountUsd;
-	}
-	
 	
 	
 }

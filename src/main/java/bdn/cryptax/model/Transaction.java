@@ -11,6 +11,7 @@ import bdn.cryptax.model.TransactionException.TransactionExceptionType;
 
 public class Transaction {
 
+	public static final String COL_TXN_ACCT = "Acct";
 	public static final String COL_TXN_DTTM = "UTC Dttm";
 	public static final String COL_TXN_TYPE = "Txn Type";
 	public static final String COL_TXN_COIN_AMNT = "Txn COIN";
@@ -41,6 +42,7 @@ public class Transaction {
 	private static final DateTimeFormatter DTF_SLASH = DateTimeFormatter.ofPattern("M/d/yyyy H:mm");
 	private static final DateTimeFormatter DTF_YEAR = DateTimeFormatter.ofPattern("yyyy");
 	
+	private String txnAcct = null;
 	private LocalDateTime txnDttm = null;
 	private TransactionType txnType = null;
 	private BigDecimal txnCoinAmnt = null;
@@ -58,6 +60,20 @@ public class Transaction {
 		}
 		if (!csvRecord.isConsistent()) {
 			throw new TransactionException(TransactionExceptionType.INVALID_DATA, "Inconsistent CSV Record #"+csvRecord.getRecordNumber());
+		}
+		
+		// Optional field (empty string if not specified)
+		try {
+			String csvTxnAcct = csvRecord.get(COL_TXN_ACCT);
+			if (csvTxnAcct != null) {
+				txnAcct = csvTxnAcct.trim();
+			}
+			else {
+				txnAcct = "";
+			}
+		}
+		catch (Exception exc) {
+			txnAcct = "";
 		}
 		
 		// Mandatory field
@@ -209,16 +225,16 @@ public class Transaction {
 	}
 
 
+	public String getTxnAcct() {
+		return txnAcct;
+	}
+
+
 	public LocalDateTime getTxnDttm() {
 		return txnDttm;
 	}
 
 
-	public void setTxnDttm(LocalDateTime txnDttm) {
-		this.txnDttm = txnDttm;
-	}
-	
-	
 	public String getTxnYearStr() {
 		return txnDttm.format(DTF_YEAR);
 	}
@@ -234,18 +250,8 @@ public class Transaction {
 	}
 
 
-	public void setTxnType(TransactionType txnType) {
-		this.txnType = txnType;
-	}
-
-
 	public BigDecimal getTxnCoinAmnt() {
 		return txnCoinAmnt;
-	}
-
-
-	public void setTxnCoinAmnt(BigDecimal txnCoinAmnt) {
-		this.txnCoinAmnt = txnCoinAmnt;
 	}
 
 
@@ -254,11 +260,6 @@ public class Transaction {
 	}
 
 
-	public void setTxnUsdAmnt(BigDecimal txnUsdAmnt) {
-		this.txnUsdAmnt = txnUsdAmnt;
-	}
-	
-	
 	public BigDecimal getCalculatedTxnUsdAmnt() throws TransactionException {
 		BigDecimal result = txnUsdAmnt;
 		if (result == null) {
@@ -277,17 +278,8 @@ public class Transaction {
 	}
 
 
-	public void setTxnUsdPerUnit(BigDecimal txnUsdPerUnit) {
-		this.txnUsdPerUnit = txnUsdPerUnit;
-	}
-
 	public BigDecimal getTxnFeeCoin() {
 		return txnFeeCoin;
-	}
-
-
-	public void setTxnFeeCoin(BigDecimal txnFeeCoin) {
-		this.txnFeeCoin = txnFeeCoin;
 	}
 
 
@@ -296,28 +288,13 @@ public class Transaction {
 	}
 
 
-	public void setTxnBrkrFeeUsd(BigDecimal txnBrkrFeeUsd) {
-		this.txnBrkrFeeUsd = txnBrkrFeeUsd;
-	}
-
-
 	public Long getTermMos() {
 		return termMos;
 	}
 
 
-	public void setTermMos(Long termMos) {
-		this.termMos = termMos;
-	}
-
-
 	public Long getTxnHashrate() {
 		return txnHashrate;
-	}
-
-
-	public void setTxnHashrate(Long txnHashrate) {
-		this.txnHashrate = txnHashrate;
 	}
 
 

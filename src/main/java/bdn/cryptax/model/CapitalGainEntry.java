@@ -81,11 +81,6 @@ public class CapitalGainEntry {
 	}
 
 
-	public void setAssetAmnt(BigDecimal assetAmnt) {
-		this.assetAmnt = assetAmnt;
-	}
-
-
 	public LocalDate getDateAcquired() {
 		return dateAcquired;
 	}
@@ -93,11 +88,6 @@ public class CapitalGainEntry {
 
 	public String getDateAcquiredStr() {
 		return (dateAcquired != null) ? dateAcquired.format(DTF_DATE) : "";
-	}
-
-
-	public void setDateAcquired(LocalDate dateAcquired) {
-		this.dateAcquired = dateAcquired;
 	}
 
 
@@ -125,11 +115,6 @@ public class CapitalGainEntry {
 	}
 
 
-	public void setDateDisposed(LocalDate dateDisposed) {
-		this.dateDisposed = dateDisposed;
-	}
-
-
 	public BigDecimal getProceeds() {
 		return proceeds;
 	}
@@ -140,11 +125,6 @@ public class CapitalGainEntry {
 	}
 
 	
-	public void setProceeds(BigDecimal proceeds) {
-		this.proceeds = proceeds;
-	}
-
-
 	public BigDecimal getCostBasis() {
 		return costBasis;
 	}
@@ -155,11 +135,6 @@ public class CapitalGainEntry {
 	}
 
 	
-	public void setCostBasis(BigDecimal costBasis) {
-		this.costBasis = costBasis;
-	}
-
-
 	public BigDecimal getGain() {
 		return gain;
 	}
@@ -169,11 +144,6 @@ public class CapitalGainEntry {
 		return (gain != null) ? gain.toPlainString() : "";
 	}
 
-	
-	public void setGain(BigDecimal gain) {
-		this.gain = gain;
-	}
-	
 	
 	@Override
 	public String toString() {
