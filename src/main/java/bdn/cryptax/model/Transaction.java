@@ -170,7 +170,7 @@ public class Transaction {
 					csvRecord.getRecordNumber() +": "+exc.getMessage());
 		}
 		
-		// Optional field
+		// Optional field (the presence of the column is also optional)
 		try {
 			String csvTermMos = csvRecord.get(COL_TERM_MOS);
 			if (csvTermMos != null && !csvTermMos.trim().equals("")) {
@@ -178,11 +178,10 @@ public class Transaction {
 			}
 		}
 		catch (Exception exc) {
-			throw new TransactionException(TransactionExceptionType.INVALID_DATA, "Unparsable COL_TERM_MOS in CSV Record #"+
-					csvRecord.getRecordNumber() +": "+exc.getMessage());
+			termMos = null;
 		}
 		
-		// Optional field
+		// Optional field (the presence of the column is also optional)
 		try {
 			String csvTxnHashrate = csvRecord.get(COL_TXN_HASHRATE);
 			if (csvTxnHashrate != null && !csvTxnHashrate.trim().equals("")) {
@@ -190,8 +189,7 @@ public class Transaction {
 			}
 		}
 		catch (Exception exc) {
-			throw new TransactionException(TransactionExceptionType.INVALID_DATA, "Unparsable COL_TXN_HASHRATE in CSV Record #"+
-					csvRecord.getRecordNumber() +": "+exc.getMessage());
+			txnHashrate = null;
 		}
 		
 		// Validate for required combinations of fields
