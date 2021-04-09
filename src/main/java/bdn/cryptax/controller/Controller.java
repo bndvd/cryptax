@@ -270,6 +270,8 @@ public class Controller {
 					TransactionMemento tm = new TransactionMemento();
 					tm.dttm = t.getTxnDttm();
 					tm.coinAmnt = t.getTxnCoinAmnt();
+					tm.src = t.getTxnSrc();
+					tm.dest = t.getTxnDest();
 					
 					if (t.getTxnUsdAmnt() != null) {
 						BigDecimal costBasis = t.getTxnUsdAmnt();
@@ -302,6 +304,9 @@ public class Controller {
 					TransactionMemento dispTM = new TransactionMemento();
 					dispTM.dttm = t.getTxnDttm();
 					dispTM.coinAmnt = BigDecimal.ZERO;
+					dispTM.src = t.getTxnSrc();
+					dispTM.dest = t.getTxnDest();
+					
 					if (t.getTxnFeeCoin() != null) {
 						dispTM.coinAmnt = dispTM.coinAmnt.add(t.getTxnFeeCoin());
 					}
@@ -345,8 +350,8 @@ public class Controller {
 						
 						// if non-zero gain/loss, then add (some "pass-through" transactions may yield zero cap gain, ignore them)
 						if (gainUsd.abs().compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0) {
-							CapitalGainEntry cge = new CapitalGainEntry(acqTM.dttm.toLocalDate(), dispTM.dttm.toLocalDate(), minCoinAmnt,
-									proceedsUsd, costBasisUsd, gainUsd);
+							CapitalGainEntry cge = new CapitalGainEntry(acqTM.dttm.toLocalDate(), dispTM.dttm.toLocalDate(), 
+									acqTM.dest, dispTM.src, minCoinAmnt, proceedsUsd, costBasisUsd, gainUsd);
 							cgeList.add(cge);
 						}
 						
@@ -446,108 +451,105 @@ public class Controller {
 				Transaction.TransactionType tType = t.getTxnType();
 				String tAcct = t.getTxnAcct();
 				
-				if (tType == TransactionType.INCOME || tType == TransactionType.MNG_INCOME || tType == TransactionType.MNG_PURCHASE ||
-						tType == TransactionType.MNG_REINVEST) {
-					int tYear = t.getTxnYearInt();
-					if (year == 0) {
-						// first income transaction
-						year = tYear;
-						
-						// if there were earlier years with capital gains, enter them first (this is not expected to happen!)
-						while (earliestCapGainYear < year) {
-							Map<String, BigDecimal> shortTermCapGain = yearToAcctToShortTermCapGain.get(earliestCapGainYear);
-							Map<String, BigDecimal> longTermCapGain = yearToAcctToLongTermCapGain.get(earliestCapGainYear);
-							IncomeEntry ie = new IncomeEntry(String.valueOf(earliestCapGainYear), accts, null, shortTermCapGain,
-									longTermCapGain, null, null, null);
-							result.add(ie);
-							earliestCapGainYear++;
-						}
-					}
+				int tYear = t.getTxnYearInt();
+				if (year == 0) {
+					// first income transaction
+					year = tYear;
 					
-					BigDecimal tUsdAmnt = t.getCalculatedTxnUsdAmnt();
-					
-					// same year
-					if (year == tYear) {
-						if (tType == TransactionType.INCOME) {
-							if (acctToOrdIncomeUsdSum == null) {
-								acctToOrdIncomeUsdSum = new HashMap<>();
-							}
-							BigDecimal ordIncome = acctToOrdIncomeUsdSum.get(tAcct);
-							if (ordIncome == null) {
-								ordIncome = BigDecimal.ZERO;
-							}
-							ordIncome = ordIncome.add(tUsdAmnt);
-							acctToOrdIncomeUsdSum.put(tAcct, ordIncome);
-						}
-						else if (tType == TransactionType.MNG_INCOME) {
-							if (acctToMngIncomeUsdSum == null) {
-								acctToMngIncomeUsdSum = new HashMap<>();
-							}
-							BigDecimal mngIncome = acctToMngIncomeUsdSum.get(tAcct);
-							if (mngIncome == null) {
-								mngIncome = BigDecimal.ZERO;
-							}
-							mngIncome = mngIncome.add(tUsdAmnt);
-							acctToMngIncomeUsdSum.put(tAcct, mngIncome);
-						}
-						else if (tType == TransactionType.MNG_PURCHASE || tType == TransactionType.MNG_REINVEST) {
-							if (acctToMngExpenseUsdSum == null) {
-								acctToMngExpenseUsdSum = new HashMap<>();
-							}
-							BigDecimal mngExpense = acctToMngExpenseUsdSum.get(tAcct);
-							if (mngExpense == null) {
-								mngExpense = BigDecimal.ZERO;
-							}
-							mngExpense = mngExpense.add(tUsdAmnt);
-							acctToMngExpenseUsdSum.put(tAcct, mngExpense);
-							
-							amortizeExpenses(yearToAcctToMngAmortExpenseUsdMap, tAcct, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
-						}
-					}
-					// new year
-					else {
-						Map<String, BigDecimal> amortExpenses = yearToAcctToMngAmortExpenseUsdMap.get(year);
-						Map<String, BigDecimal> shortTermCapGains = yearToAcctToShortTermCapGain.get(year);
-						Map<String, BigDecimal> longTermCapGains = yearToAcctToLongTermCapGain.get(year);
-						
-						IncomeEntry ie = new IncomeEntry(String.valueOf(year), accts, acctToOrdIncomeUsdSum, shortTermCapGains,
-								longTermCapGains, acctToMngIncomeUsdSum, acctToMngExpenseUsdSum, amortExpenses);
+					// if there were earlier years with capital gains, enter them first (this is not expected to happen!)
+					while (earliestCapGainYear != 0 && earliestCapGainYear < year) {
+						Map<String, BigDecimal> shortTermCapGain = yearToAcctToShortTermCapGain.remove(earliestCapGainYear);
+						Map<String, BigDecimal> longTermCapGain = yearToAcctToLongTermCapGain.remove(earliestCapGainYear);
+						IncomeEntry ie = new IncomeEntry(String.valueOf(earliestCapGainYear), accts, null, shortTermCapGain,
+								longTermCapGain, null, null, null);
 						result.add(ie);
-	
-						if (year > tYear) {
-							// should not happen since we sorted transactions by dttm, but a defensive step to avoid an infinite loop
-							throw new ControllerException("Encountered an out of order (earlier) Transaction dttm " + t.getTxnDttm());
-						}
-						
-						year++;
-						acctToOrdIncomeUsdSum = null;
-						acctToMngIncomeUsdSum = null;
-						acctToMngExpenseUsdSum = null;
-						
-						while (year < tYear) {
-							amortExpenses = yearToAcctToMngAmortExpenseUsdMap.get(year);
-							shortTermCapGains = yearToAcctToShortTermCapGain.get(year);
-							longTermCapGains = yearToAcctToLongTermCapGain.get(year);
-							
-							ie = new IncomeEntry(String.valueOf(year), accts, acctToOrdIncomeUsdSum, shortTermCapGains, longTermCapGains,
-									acctToMngIncomeUsdSum, acctToMngExpenseUsdSum, amortExpenses);
-							result.add(ie);
-							year++;
-						}
-						
-						if (tType == TransactionType.INCOME) {
+						earliestCapGainYear++;
+					}
+				}
+				
+				BigDecimal tUsdAmnt = t.getCalculatedTxnUsdAmnt();
+				
+				// same year
+				if (year == tYear) {
+					if (tType == TransactionType.INCOME) {
+						if (acctToOrdIncomeUsdSum == null) {
 							acctToOrdIncomeUsdSum = new HashMap<>();
-							acctToOrdIncomeUsdSum.put(tAcct, tUsdAmnt);
 						}
-						else if (tType == TransactionType.MNG_INCOME) {
+						BigDecimal ordIncome = acctToOrdIncomeUsdSum.get(tAcct);
+						if (ordIncome == null) {
+							ordIncome = BigDecimal.ZERO;
+						}
+						ordIncome = ordIncome.add(tUsdAmnt);
+						acctToOrdIncomeUsdSum.put(tAcct, ordIncome);
+					}
+					else if (tType == TransactionType.MNG_INCOME) {
+						if (acctToMngIncomeUsdSum == null) {
 							acctToMngIncomeUsdSum = new HashMap<>();
-							acctToMngIncomeUsdSum.put(tAcct, tUsdAmnt);
 						}
-						else if (tType == TransactionType.MNG_PURCHASE || tType == TransactionType.MNG_REINVEST) {
+						BigDecimal mngIncome = acctToMngIncomeUsdSum.get(tAcct);
+						if (mngIncome == null) {
+							mngIncome = BigDecimal.ZERO;
+						}
+						mngIncome = mngIncome.add(tUsdAmnt);
+						acctToMngIncomeUsdSum.put(tAcct, mngIncome);
+					}
+					else if (tType == TransactionType.MNG_PURCHASE || tType == TransactionType.MNG_REINVEST) {
+						if (acctToMngExpenseUsdSum == null) {
 							acctToMngExpenseUsdSum = new HashMap<>();
-							acctToMngExpenseUsdSum.put(tAcct, tUsdAmnt);
-							amortizeExpenses(yearToAcctToMngAmortExpenseUsdMap, tAcct, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 						}
+						BigDecimal mngExpense = acctToMngExpenseUsdSum.get(tAcct);
+						if (mngExpense == null) {
+							mngExpense = BigDecimal.ZERO;
+						}
+						mngExpense = mngExpense.add(tUsdAmnt);
+						acctToMngExpenseUsdSum.put(tAcct, mngExpense);
+						
+						amortizeExpenses(yearToAcctToMngAmortExpenseUsdMap, tAcct, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
+					}
+				}
+				// new year
+				else {
+					Map<String, BigDecimal> amortExpenses = yearToAcctToMngAmortExpenseUsdMap.remove(year);
+					Map<String, BigDecimal> shortTermCapGains = yearToAcctToShortTermCapGain.remove(year);
+					Map<String, BigDecimal> longTermCapGains = yearToAcctToLongTermCapGain.remove(year);
+					
+					IncomeEntry ie = new IncomeEntry(String.valueOf(year), accts, acctToOrdIncomeUsdSum, shortTermCapGains,
+							longTermCapGains, acctToMngIncomeUsdSum, acctToMngExpenseUsdSum, amortExpenses);
+					result.add(ie);
+
+					if (year > tYear) {
+						// should not happen since we sorted transactions by dttm, but a defensive step to avoid an infinite loop
+						throw new ControllerException("Encountered an out of order (earlier) Transaction dttm " + t.getTxnDttm());
+					}
+					
+					year++;
+					acctToOrdIncomeUsdSum = null;
+					acctToMngIncomeUsdSum = null;
+					acctToMngExpenseUsdSum = null;
+					
+					while (year < tYear) {
+						amortExpenses = yearToAcctToMngAmortExpenseUsdMap.remove(year);
+						shortTermCapGains = yearToAcctToShortTermCapGain.remove(year);
+						longTermCapGains = yearToAcctToLongTermCapGain.remove(year);
+						
+						ie = new IncomeEntry(String.valueOf(year), accts, acctToOrdIncomeUsdSum, shortTermCapGains, longTermCapGains,
+								acctToMngIncomeUsdSum, acctToMngExpenseUsdSum, amortExpenses);
+						result.add(ie);
+						year++;
+					}
+					
+					if (tType == TransactionType.INCOME) {
+						acctToOrdIncomeUsdSum = new HashMap<>();
+						acctToOrdIncomeUsdSum.put(tAcct, tUsdAmnt);
+					}
+					else if (tType == TransactionType.MNG_INCOME) {
+						acctToMngIncomeUsdSum = new HashMap<>();
+						acctToMngIncomeUsdSum.put(tAcct, tUsdAmnt);
+					}
+					else if (tType == TransactionType.MNG_PURCHASE || tType == TransactionType.MNG_REINVEST) {
+						acctToMngExpenseUsdSum = new HashMap<>();
+						acctToMngExpenseUsdSum.put(tAcct, tUsdAmnt);
+						amortizeExpenses(yearToAcctToMngAmortExpenseUsdMap, tAcct, t.getTxnDttm().toLocalDate(), t.getTermMos(), tUsdAmnt);
 					}
 				}
 			}
@@ -556,11 +558,12 @@ public class Controller {
 			}
 		}
 		while (acctToOrdIncomeUsdSum != null || acctToMngIncomeUsdSum != null || acctToMngExpenseUsdSum != null ||
-				yearToAcctToMngAmortExpenseUsdMap.get(year) != null) {
+				! yearToAcctToMngAmortExpenseUsdMap.isEmpty() || ! yearToAcctToShortTermCapGain.isEmpty() ||
+				! yearToAcctToLongTermCapGain.isEmpty()) {
 			
-			Map<String, BigDecimal> amortExpenses = yearToAcctToMngAmortExpenseUsdMap.get(year);
-			Map<String, BigDecimal> shortTermCapGain = yearToAcctToShortTermCapGain.get(year);
-			Map<String, BigDecimal> longTermCapGain = yearToAcctToLongTermCapGain.get(year);
+			Map<String, BigDecimal> amortExpenses = yearToAcctToMngAmortExpenseUsdMap.remove(year);
+			Map<String, BigDecimal> shortTermCapGain = yearToAcctToShortTermCapGain.remove(year);
+			Map<String, BigDecimal> longTermCapGain = yearToAcctToLongTermCapGain.remove(year);
 			
 			IncomeEntry ie = new IncomeEntry(String.valueOf(year), accts, acctToOrdIncomeUsdSum, shortTermCapGain, longTermCapGain,
 					acctToMngIncomeUsdSum, acctToMngExpenseUsdSum, amortExpenses);
@@ -861,6 +864,8 @@ public class Controller {
 					CapitalGainEntry.COL_TERM,
 					CapitalGainEntry.COL_DATE_ACQ,
 					CapitalGainEntry.COL_DATE_DISP,
+					CapitalGainEntry.COL_BRKR_ACQ,
+					CapitalGainEntry.COL_BRKR_DISP,
 					CapitalGainEntry.COL_ASSET_AMNT,
 					CapitalGainEntry.COL_PROCEEDS,
 					CapitalGainEntry.COL_COST_BASIS,
@@ -872,6 +877,8 @@ public class Controller {
 						cge.getTermStr(),
 						cge.getDateAcquiredStr(),
 						cge.getDateDisposedStr(),
+						cge.getBrokerAcquiredStr(),
+						cge.getBrokerDisposedStr(),
 						cge.getAssetAmntStr(),
 						cge.getProceedsStr(),
 						cge.getCostBasisStr(),

@@ -10,6 +10,10 @@ public class TransactionMemento {
 	public BigDecimal coinAmnt = null;
 	// Effective USD/Coin unit rate (this includes broker fees used to acquire the coin)
 	public BigDecimal effUsdPerUnit = null;
+	// Source (broker)
+	public String src = null;
+	// Destination (broker)
+	public String dest = null;
 	
 	public TransactionMemento() {}
 	

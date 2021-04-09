@@ -14,6 +14,8 @@ public class Transaction {
 	public static final String COL_TXN_ACCT = "Acct";
 	public static final String COL_TXN_DTTM = "UTC Dttm";
 	public static final String COL_TXN_TYPE = "Txn Type";
+	public static final String COL_TXN_SRC = "Src";
+	public static final String COL_TXN_DEST = "Dest";
 	public static final String COL_TXN_COIN_AMNT = "Txn COIN";
 	public static final String COL_TXN_USD_AMNT = "Txn USD";
 	public static final String COL_TXN_USD_PER_UNIT = "Txn USD/COIN";
@@ -45,6 +47,8 @@ public class Transaction {
 	private String txnAcct = null;
 	private LocalDateTime txnDttm = null;
 	private TransactionType txnType = null;
+	private String txnSrc = null;
+	private String txnDest = null;
 	private BigDecimal txnCoinAmnt = null;
 	private BigDecimal txnUsdAmnt = null;
 	private BigDecimal txnUsdPerUnit = null;
@@ -183,6 +187,28 @@ public class Transaction {
 		
 		// Optional field (the presence of the column is also optional)
 		try {
+			String csvTxnSrc = csvRecord.get(COL_TXN_SRC);
+			if (csvTxnSrc != null) {
+				txnSrc = csvTxnSrc.trim();
+			}
+		}
+		catch (Exception exc) {
+			txnSrc = null;
+		}
+		
+		// Optional field (the presence of the column is also optional)
+		try {
+			String csvTxnDest = csvRecord.get(COL_TXN_DEST);
+			if (csvTxnDest != null) {
+				txnDest = csvTxnDest.trim();
+			}
+		}
+		catch (Exception exc) {
+			txnDest = null;
+		}
+		
+		// Optional field (the presence of the column is also optional)
+		try {
 			String csvTxnHashrate = csvRecord.get(COL_TXN_HASHRATE);
 			if (csvTxnHashrate != null && !csvTxnHashrate.trim().equals("")) {
 				txnHashrate = Long.parseLong(csvTxnHashrate);
@@ -245,6 +271,16 @@ public class Transaction {
 
 	public TransactionType getTxnType() {
 		return txnType;
+	}
+
+
+	public String getTxnSrc() {
+		return txnSrc;
+	}
+
+
+	public String getTxnDest() {
+		return txnDest;
 	}
 
 
