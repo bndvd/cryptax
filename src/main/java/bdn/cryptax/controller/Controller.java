@@ -14,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -28,7 +29,8 @@ import org.apache.commons.csv.CSVRecord;
 import org.apache.commons.io.FilenameUtils;
 
 import bdn.cryptax.model.CapitalGainEntry;
-import bdn.cryptax.model.CapitalGainEntry.CapitalGainTerm;
+import bdn.cryptax.model.GainEntry;
+import bdn.cryptax.model.GainEntry.GainTerm;
 import bdn.cryptax.model.IncomeEntry;
 import bdn.cryptax.model.MiningContract;
 import bdn.cryptax.model.MiningContract.MiningContractType;
@@ -39,6 +41,8 @@ import bdn.cryptax.model.TransactionComparator;
 import bdn.cryptax.model.TransactionException;
 import bdn.cryptax.model.TransactionException.TransactionExceptionType;
 import bdn.cryptax.model.TransactionMemento;
+import bdn.cryptax.model.UnrealizedCostBasisEntry;
+import bdn.cryptax.model.UnrealizedGainEntry;
 
 public class Controller {
 	
@@ -50,7 +54,20 @@ public class Controller {
 	private static final BigDecimal THRESHOLD_DECIMAL_EQUALING_ZERO = new BigDecimal("0.000000000000000000000001");
 	private static final MathContext PRECISION = new MathContext(34, RoundingMode.HALF_UP);
 	
+	private static Set<String> USD_STABLECOINS = new HashSet<>();
+	static {
+		USD_STABLECOINS.add("USDC");
+		USD_STABLECOINS.add("USDT");
+		USD_STABLECOINS.add("BUSD");
+		USD_STABLECOINS.add("DAI");
+		USD_STABLECOINS.add("UST");
+		USD_STABLECOINS.add("PAX");
+		USD_STABLECOINS.add("HUSD");
+		USD_STABLECOINS.add("TUSD");
+		USD_STABLECOINS.add("GUSD");
+	}
 	
+
 	public static void process(String inputFileName) throws ControllerException {
 		if (inputFileName == null) {
 			throw new ControllerException("Input/output file name inputs are null/insufficient");
@@ -77,22 +94,27 @@ public class Controller {
 			accts[0] = "";
 		}
 		
-		Map<String, List<CapitalGainEntry>> cgeListMap = computeCapitalGains(CostBasisType.FIFO, tListMap);
-		if (cgeListMap == null) {
-			throw new ControllerException("Capital Gain computation failed (returned null)");
+		Map<String, List<GainEntry>> geListMap = computeGains(CostBasisType.FIFO, tListMap);
+		if (geListMap == null) {
+			throw new ControllerException("Gains computation failed (returned null)");
 		}
 		// count entries
-		int cgeCount = 0;
-		for (String acct : cgeListMap.keySet()) {
-			List<CapitalGainEntry> cgeList = cgeListMap.get(acct);
-			if (cgeList != null) {
-				cgeCount += cgeList.size();
+		int geCount = 0;
+		for (String acct : geListMap.keySet()) {
+			List<GainEntry> geList = geListMap.get(acct);
+			if (geList != null) {
+				geCount += geList.size();
 			}
 		}
-		System.out.println("INFO: Computed "+cgeCount+" capital gain entries");
+		System.out.println("INFO: Computed "+geCount+" gain entries");
+		
+		UnrealizedCostBasisEntry ucbe = computeUnrealizedCostBasis(geListMap);
+		if (ucbe == null) {
+			throw new ControllerException("Unrealized cost basis computation failed (returned null)");
+		}
 		
 		
-		List<IncomeEntry> ieList = computeIncomeAndExpenses(tListMap, accts, cgeListMap);
+		List<IncomeEntry> ieList = computeIncomeAndExpenses(tListMap, accts, geListMap);
 		if (ieList == null) {
 			throw new ControllerException("Income computation failed (returned null)");
 		}
@@ -118,20 +140,29 @@ public class Controller {
 		DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 		String now = LocalDateTime.now().format(dtf);
 
-		Set<String> cgeAcctSet = cgeListMap.keySet();
-		for (String acct : cgeAcctSet) {
-			List<CapitalGainEntry> cgeList = cgeListMap.get(acct);
-			if (cgeList == null || cgeList.isEmpty()) {
-				System.err.println("ERROR: Skipping writing capital gains for account "+acct+" because cge list was null/empty");
+		Set<String> geAcctSet = geListMap.keySet();
+		for (String acct : geAcctSet) {
+			List<GainEntry> geList = geListMap.get(acct);
+			if (geList == null || geList.isEmpty()) {
+				System.err.println("ERROR: Skipping writing gains for account "+acct+" because ge list was null/empty");
+				continue;
+			}
+			if (USD_STABLECOINS.contains(acct)) {
+				System.out.println("INFO: Skipping writing gains for account "+acct+" because acct considered USD-STABLECOIN");
 				continue;
 			}
 			
-			String outFileNameCapitalGains = fileBaseName + "_cg_" + (acct.equals("") ? "" : acct + "_") + now + ".csv";
-			File outputFileCapGains = new File(folder, outFileNameCapitalGains);
-			writeCapitalGainEntries(cgeList, outputFileCapGains);
-			System.out.println("INFO: Wrote "+cgeList.size()+" capital gain entries to "+outputFileCapGains.getAbsolutePath());
+			String outFileNameCostBasis = fileBaseName + "_cb_" + (acct.equals("") ? "" : acct + "_") + now + ".csv";
+			File outputFileCostBasis = new File(folder, outFileNameCostBasis);
+			writeGainEntries(geList, outputFileCostBasis);
+			System.out.println("INFO: Wrote "+geList.size()+" gains entries to "+outputFileCostBasis.getAbsolutePath());
 		}
 		
+		
+		String outFileNameUnrealizedCostBasis = fileBaseName + "_ucb_" + now + ".csv";
+		File outFileUnrealizedCostBasis = new File(folder, outFileNameUnrealizedCostBasis);
+		writeUnrealizedCostBasis(ucbe, outFileUnrealizedCostBasis);
+		System.out.println("INFO: Wrote unrealized cost basis to "+outFileUnrealizedCostBasis.getAbsolutePath());
 		
 		String outFileNameIncome = fileBaseName + "_inc_" + now + ".csv";
 		File outputFileIncome = new File(folder, outFileNameIncome);
@@ -235,16 +266,16 @@ public class Controller {
 	}
 	
 	
-	private static Map<String, List<CapitalGainEntry>> computeCapitalGains(CostBasisType cbType, Map<String, List<Transaction>> tListMap)
+	private static Map<String, List<GainEntry>> computeGains(CostBasisType cbType, Map<String, List<Transaction>> tListMap)
 			throws ControllerException {
 		if (tListMap == null || tListMap.isEmpty()) {
 			return null;
 		}
 		if (cbType != CostBasisType.FIFO) {
-			throw new ControllerException("Could not compute capital gains due to an unsupported cost basis type. Only FIFO is supported.");
+			throw new ControllerException("Could not compute gains due to an unsupported cost basis type. Only FIFO is supported.");
 		}
 		
-		Map<String, List<CapitalGainEntry>> result = new HashMap<>();
+		Map<String, List<GainEntry>> result = new HashMap<>();
 		
 		Set<String> acctSet = tListMap.keySet();
 		for (String acct : acctSet) {
@@ -253,7 +284,7 @@ public class Controller {
 				continue;
 			}
 			
-			List<CapitalGainEntry> cgeList = new ArrayList<>();
+			List<GainEntry> geList = new ArrayList<>();
 			
 			// Sort all transactions in chronological order
 			TransactionComparator tc = new TransactionComparator();
@@ -293,7 +324,7 @@ public class Controller {
 					}
 					else {
 						// this should not happen, since validation occurred at Transaction creation
-						throw new ControllerException("Encountered unexpected null data in txn USD or USD/unit in calculating capital gain acq/inc at Transaction dttm "
+						throw new ControllerException("Encountered unexpected null data in txn USD or USD/unit in calculating gains acq/inc at Transaction dttm "
 								+ t.getTxnDttm());
 					}
 					
@@ -331,7 +362,7 @@ public class Controller {
 					}
 					else {
 						// this should not happen, since validation occurred at Transaction creation
-						throw new ControllerException("Encountered unexpected null data in txn USD or USD/unit in calculating capital gain tran/disp"
+						throw new ControllerException("Encountered unexpected null data in txn USD or USD/unit in calculating gains tran/disp"
 								+ t.getTxnDttm());
 					}
 					
@@ -350,9 +381,9 @@ public class Controller {
 						
 						// if non-zero gain/loss, then add (some "pass-through" transactions may yield zero cap gain, ignore them)
 						if (gainUsd.abs().compareTo(THRESHOLD_DECIMAL_EQUALING_ZERO) > 0) {
-							CapitalGainEntry cge = new CapitalGainEntry(acqTM.dttm.toLocalDate(), dispTM.dttm.toLocalDate(), 
+							GainEntry ge = new CapitalGainEntry(acqTM.dttm.toLocalDate(), dispTM.dttm.toLocalDate(), 
 									acqTM.dest, dispTM.src, minCoinAmnt, proceedsUsd, costBasisUsd, gainUsd);
-							cgeList.add(cge);
+							geList.add(ge);
 						}
 						
 						dispTM.coinAmnt = dispTM.coinAmnt.subtract(minCoinAmnt);
@@ -365,17 +396,81 @@ public class Controller {
 				}
 			}
 			
-			result.put(acct, cgeList);
+			// add any undisposed (unsold) assets as unrealized gain entries
+			for (TransactionMemento tm : tmQueue) {
+				BigDecimal costBasis = tm.coinAmnt.multiply(tm.effUsdPerUnit);
+				UnrealizedGainEntry uge = new UnrealizedGainEntry(tm.dttm.toLocalDate(), tm.src, tm.coinAmnt, costBasis);
+				geList.add(uge);
+			}
+			
+			
+			result.put(acct, geList);
 		}
+		
+		return result;
+	}
+	
+
+	private static UnrealizedCostBasisEntry computeUnrealizedCostBasis(Map<String, List<GainEntry>> geListMap) throws ControllerException {
+		if (geListMap == null) {
+			return null;
+		}
+		
+		Set<String> acctSet = geListMap.keySet();
+		String[] accts = new String[acctSet.size()];
+		Map<String, BigDecimal> shortTermCostBasis = new HashMap<>();
+		Map<String, BigDecimal> longTermCostBasis = new HashMap<>();
+		
+		LocalDate now = LocalDate.now();
+		
+		int i = 0;
+		for (String acct : acctSet) {
+			List<GainEntry> geList = geListMap.get(acct);
+			if (geList == null || geList.isEmpty()) {
+				continue;
+			}
+			
+			BigDecimal shortTermCB = null;
+			BigDecimal longTermCB = null;
+			
+			for (GainEntry ge : geList) {
+				if (ge instanceof UnrealizedGainEntry) {
+					LocalDate dateAcq = ge.getDateAcquired();
+					GainTerm term = GainEntry.getTerm(dateAcq, now);
+					if (term == GainTerm.SHORTTERM) {
+						if (shortTermCB == null) {
+							shortTermCB = BigDecimal.ZERO;
+						}
+						shortTermCB = shortTermCB.add(ge.getCostBasis());
+					}
+					else if (term == GainTerm.LONGTERM) {
+						if (longTermCB == null) {
+							longTermCB = BigDecimal.ZERO;
+						}
+						longTermCB = longTermCB.add(ge.getCostBasis());
+					}
+					else {
+						throw new ControllerException("Controller::computeUnrealizedCostBasis encountered unrealized gain entry whose term was UNKNOWN");
+					}
+				}
+			}
+			shortTermCostBasis.put(acct, shortTermCB);
+			longTermCostBasis.put(acct, longTermCB);
+			
+			accts[i] = acct;
+			i++;
+		}
+		
+		UnrealizedCostBasisEntry result = new UnrealizedCostBasisEntry(accts, shortTermCostBasis, longTermCostBasis);
 		
 		return result;
 	}
 	
 	
 	private static List<IncomeEntry> computeIncomeAndExpenses(Map<String, List<Transaction>> tListMap, String[] accts, 
-			Map<String, List<CapitalGainEntry>> cgeListMap) throws ControllerException {
+			Map<String, List<GainEntry>> geListMap) throws ControllerException {
 		
-		if (tListMap == null || accts == null || cgeListMap == null) {
+		if (tListMap == null || accts == null || geListMap == null) {
 			return null;
 		}
 
@@ -385,43 +480,46 @@ public class Controller {
 		// First take care of computing capital gain totals for each year (for each account)
 		Map<Integer, Map<String, BigDecimal>> yearToAcctToShortTermCapGain = new HashMap<>();
 		Map<Integer, Map<String, BigDecimal>> yearToAcctToLongTermCapGain = new HashMap<>();
-		Set<String> acctSet = cgeListMap.keySet();
+		Set<String> acctSet = geListMap.keySet();
 		int earliestCapGainYear = 0;
 		for (String acct : acctSet) {
-			List<CapitalGainEntry> cgeList = cgeListMap.get(acct);
+			List<GainEntry> geList = geListMap.get(acct);
 			
-			for (CapitalGainEntry cge : cgeList) {
-				int year = cge.getTaxYearInt();
-				if (earliestCapGainYear == 0 || year < earliestCapGainYear) {
-					earliestCapGainYear = year;
-				}
-				
-				Map<String, BigDecimal> capGainMap = null;
-				CapitalGainTerm term = cge.getTerm();
-				if (term == CapitalGainTerm.SHORTTERM) {
-					capGainMap = yearToAcctToShortTermCapGain.get(year);
-					if (capGainMap == null) {
-						capGainMap = new HashMap<>();
-						yearToAcctToShortTermCapGain.put(year, capGainMap);
+			for (GainEntry ge : geList) {
+				// only process capital gain entries (ignore unrealized income cost basis items)
+				if (ge instanceof CapitalGainEntry) {
+					int year = ge.getTaxYearInt();
+					if (earliestCapGainYear == 0 || year < earliestCapGainYear) {
+						earliestCapGainYear = year;
 					}
-				}
-				else if (term == CapitalGainTerm.LONGTERM) {
-					capGainMap = yearToAcctToLongTermCapGain.get(year);
-					if (capGainMap == null) {
-						capGainMap = new HashMap<>();
-						yearToAcctToLongTermCapGain.put(year, capGainMap);
+					
+					Map<String, BigDecimal> capGainMap = null;
+					GainTerm term = ge.getTerm();
+					if (term == GainTerm.SHORTTERM) {
+						capGainMap = yearToAcctToShortTermCapGain.get(year);
+						if (capGainMap == null) {
+							capGainMap = new HashMap<>();
+							yearToAcctToShortTermCapGain.put(year, capGainMap);
+						}
 					}
-				}
-				// capGainMap should not be null, unless the term is not short-term or long-term
-				if (capGainMap != null) {
-					BigDecimal currCapGainInMap = capGainMap.get(acct);
-					if (currCapGainInMap == null) {
-						currCapGainInMap = BigDecimal.ZERO;
+					else if (term == GainTerm.LONGTERM) {
+						capGainMap = yearToAcctToLongTermCapGain.get(year);
+						if (capGainMap == null) {
+							capGainMap = new HashMap<>();
+							yearToAcctToLongTermCapGain.put(year, capGainMap);
+						}
 					}
-					BigDecimal gain = cge.getGain();
-					if (gain != null) {
-						currCapGainInMap = currCapGainInMap.add(gain);
-						capGainMap.put(acct, currCapGainInMap);
+					// capGainMap should not be null, unless the term is not short-term or long-term
+					if (capGainMap != null) {
+						BigDecimal currCapGainInMap = capGainMap.get(acct);
+						if (currCapGainInMap == null) {
+							currCapGainInMap = BigDecimal.ZERO;
+						}
+						BigDecimal gain = ge.getGain();
+						if (gain != null) {
+							currCapGainInMap = currCapGainInMap.add(gain);
+							capGainMap.put(acct, currCapGainInMap);
+						}
 					}
 				}
 			}
@@ -848,9 +946,9 @@ public class Controller {
 	}
 	
 	
-	private static void writeCapitalGainEntries(List<CapitalGainEntry> cgeList, File outputFile) throws ControllerException {
-		if (cgeList == null || outputFile == null) {
-			throw new ControllerException("Capital Gains entries or output file is null");
+	private static void writeGainEntries(List<GainEntry> geList, File outputFile) throws ControllerException {
+		if (geList == null || outputFile == null) {
+			throw new ControllerException("Gain entries or output file is null");
 		}
 		if (outputFile.exists()) {
 			throw new ControllerException("Could not write to output file "+outputFile.getAbsolutePath()+" as it already exists");
@@ -860,30 +958,79 @@ public class Controller {
 			CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSV_FORMAT);
 			
 			printer.printRecord(
-					CapitalGainEntry.COL_TAX_YEAR,
-					CapitalGainEntry.COL_TERM,
-					CapitalGainEntry.COL_DATE_ACQ,
-					CapitalGainEntry.COL_DATE_DISP,
-					CapitalGainEntry.COL_BRKR_ACQ,
-					CapitalGainEntry.COL_BRKR_DISP,
-					CapitalGainEntry.COL_ASSET_AMNT,
-					CapitalGainEntry.COL_PROCEEDS,
-					CapitalGainEntry.COL_COST_BASIS,
-					CapitalGainEntry.COL_GAIN);
+					GainEntry.COL_TAX_YEAR,
+					GainEntry.COL_TERM,
+					GainEntry.COL_DATE_ACQ,
+					GainEntry.COL_DATE_DISP,
+					GainEntry.COL_BRKR_ACQ,
+					GainEntry.COL_BRKR_DISP,
+					GainEntry.COL_ASSET_AMNT,
+					GainEntry.COL_PROCEEDS,
+					GainEntry.COL_COST_BASIS,
+					GainEntry.COL_GAIN);
 			
-			for (CapitalGainEntry cge : cgeList) {
+			for (GainEntry ge : geList) {
 				printer.printRecord(
-						cge.getTaxYearStr(),
-						cge.getTermStr(),
-						cge.getDateAcquiredStr(),
-						cge.getDateDisposedStr(),
-						cge.getBrokerAcquiredStr(),
-						cge.getBrokerDisposedStr(),
-						cge.getAssetAmntStr(),
-						cge.getProceedsStr(),
-						cge.getCostBasisStr(),
-						cge.getGainStr());
+						ge.getTaxYearStr(),
+						ge.getTermStr(),
+						ge.getDateAcquiredStr(),
+						ge.getDateDisposedStr(),
+						ge.getBrokerAcquiredStr(),
+						ge.getBrokerDisposedStr(),
+						ge.getAssetAmntStr(),
+						ge.getProceedsStr(),
+						ge.getCostBasisStr(),
+						ge.getGainStr());
 			}
+			
+			printer.close(true);
+		}
+		catch (IOException ioExc) {
+			throw new ControllerException(ioExc.getMessage());
+		}
+	}
+	
+	
+	private static void writeUnrealizedCostBasis(UnrealizedCostBasisEntry ucbe, File outputFile) throws ControllerException {
+		if (ucbe == null || outputFile == null) {
+			throw new ControllerException("Unrealized cost basis entries or output file is null");
+		}
+		if (outputFile.exists()) {
+			throw new ControllerException("Could not write to output file "+outputFile.getAbsolutePath()+" as it already exists");
+		}
+		if (ucbe.getAccts() == null || ucbe.getAccts().length < 1) {
+			System.out.println("INFO: writeUnrealizedCostBasis skipped writing file because ucbe was empty.");
+			return;
+		}
+		
+		try {
+			CSVPrinter printer = new CSVPrinter(new FileWriter(outputFile), CSV_FORMAT);
+			
+			// header row
+			List<String> sortedAccts = new ArrayList<>();
+			String[] acctArr = ucbe.getAccts();
+			for (String a : acctArr) {
+				// add accounts that are not USD stablecoins
+				if (! USD_STABLECOINS.contains(a)) {
+					sortedAccts.add(a);
+				}
+			}
+			Collections.sort(sortedAccts);
+			
+			List<String> rowValues = new ArrayList<>();
+			for (String a : sortedAccts) {
+				rowValues.add("["+a+"] " + UnrealizedCostBasisEntry.COL_COSTBASIS_SHORTTERM);
+				rowValues.add("["+a+"] " + UnrealizedCostBasisEntry.COL_COSTBASIS_LONGTERM);
+			}
+			printer.printRecord((Object[]) rowValues.toArray(new String[rowValues.size()]));
+			
+			// data row
+			rowValues.clear();
+			for (String a : sortedAccts) {
+				rowValues.add(ucbe.getShortTermCostBasisStr(a));
+				rowValues.add(ucbe.getLongTermCostBasisStr(a));
+			}
+			printer.printRecord((Object[]) rowValues.toArray(new String[rowValues.size()]));
 			
 			printer.close(true);
 		}
