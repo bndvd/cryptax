@@ -420,6 +420,7 @@ public class Controller {
 		String[] accts = new String[acctSet.size()];
 		Map<String, BigDecimal> shortTermCostBasis = new HashMap<>();
 		Map<String, BigDecimal> longTermCostBasis = new HashMap<>();
+		Map<String, BigDecimal> avgCostBasis = new HashMap<>();
 		
 		LocalDate now = LocalDate.now();
 		
@@ -432,6 +433,7 @@ public class Controller {
 			
 			BigDecimal shortTermCB = null;
 			BigDecimal longTermCB = null;
+			BigDecimal assetAmnt = null;
 			
 			for (GainEntry ge : geList) {
 				if (ge instanceof UnrealizedGainEntry) {
@@ -452,16 +454,36 @@ public class Controller {
 					else {
 						throw new ControllerException("Controller::computeUnrealizedCostBasis encountered unrealized gain entry whose term was UNKNOWN");
 					}
+					
+					if (assetAmnt == null) {
+						assetAmnt = BigDecimal.ZERO;
+					}
+					assetAmnt = assetAmnt.add(ge.getAssetAmnt());
 				}
 			}
 			shortTermCostBasis.put(acct, shortTermCB);
 			longTermCostBasis.put(acct, longTermCB);
 			
+			// calculate overall average cost basis (avg cost per asset unit)
+			BigDecimal totalCostBasis = null;
+			BigDecimal avgCB = null;
+			if ((shortTermCB != null || longTermCB != null) && assetAmnt != null && assetAmnt.compareTo(BigDecimal.ZERO) != 0) {
+				totalCostBasis = BigDecimal.ZERO;
+				if (shortTermCB != null) {
+					totalCostBasis = totalCostBasis.add(shortTermCB);
+				}
+				if (longTermCB != null) {
+					totalCostBasis = totalCostBasis.add(longTermCB);
+				}
+				avgCB = totalCostBasis.divide(assetAmnt, PRECISION);
+			}
+			avgCostBasis.put(acct, avgCB);
+			
 			accts[i] = acct;
 			i++;
 		}
 		
-		UnrealizedCostBasisEntry result = new UnrealizedCostBasisEntry(accts, shortTermCostBasis, longTermCostBasis);
+		UnrealizedCostBasisEntry result = new UnrealizedCostBasisEntry(accts, shortTermCostBasis, longTermCostBasis, avgCostBasis);
 		
 		return result;
 	}
@@ -1021,6 +1043,7 @@ public class Controller {
 			for (String a : sortedAccts) {
 				rowValues.add("["+a+"] " + UnrealizedCostBasisEntry.COL_COSTBASIS_SHORTTERM);
 				rowValues.add("["+a+"] " + UnrealizedCostBasisEntry.COL_COSTBASIS_LONGTERM);
+				rowValues.add("["+a+"] " + UnrealizedCostBasisEntry.COL_COSTBASIS_AVG);
 			}
 			printer.printRecord((Object[]) rowValues.toArray(new String[rowValues.size()]));
 			
@@ -1029,6 +1052,7 @@ public class Controller {
 			for (String a : sortedAccts) {
 				rowValues.add(ucbe.getShortTermCostBasisStr(a));
 				rowValues.add(ucbe.getLongTermCostBasisStr(a));
+				rowValues.add(ucbe.getAvgCostBasisStr(a));
 			}
 			printer.printRecord((Object[]) rowValues.toArray(new String[rowValues.size()]));
 			
